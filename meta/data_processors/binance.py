@@ -195,6 +195,8 @@ class Binance(_Base):
 
     def dataframe_with_limit(self, symbol):
         final_df = pd.DataFrame()
+        #print(final_df)
+
         last_datetime = self.start_time
         while True:
             new_df = self.get_binance_bars(last_datetime, symbol)

@@ -4,9 +4,9 @@ from elegantrl.agents import AgentDDPG
 from elegantrl.agents import AgentPPO
 from elegantrl.agents import AgentSAC
 from elegantrl.agents import AgentTD3
-from elegantrl.train.config import Arguments
-from elegantrl.train.run import init_agent
-from elegantrl.train.run import train_and_evaluate
+from elegantrl.train.config import Config
+#from elegantrl.train.run import init_agent
+from elegantrl.train.run import train_agent
 
 
 MODELS = {"ddpg": AgentDDPG, "td3": AgentTD3, "sac": AgentSAC, "ppo": AgentPPO}
@@ -51,11 +51,17 @@ class DRLAgent:
             "if_train": True,
         }
         env = self.env(config=env_config)
+        env_args = {'config': env_config,
+            'env_name': env.env_name,
+            'max_step': env.max_step,
+            'state_dim': env.state_dim,
+            'action_dim': env.action_dim,
+            'if_discrete': False}
         env.env_num = 1
         agent = MODELS[model_name]
         if model_name not in MODELS:
             raise NotImplementedError("NotImplementedError")
-        model = Arguments(agent_class=agent, env=env)
+        model = Config(agent_class=agent, env_class=self.env, env_args=env_args)
         model.if_off_policy = model_name in OFF_POLICY_MODELS
         if model_kwargs is not None:
             try:
@@ -75,27 +81,39 @@ class DRLAgent:
 
     def train_model(self, model, cwd, total_timesteps=5000):
         model.cwd = cwd
-        model.break_step = total_timesteps
-        train_and_evaluate(model)
+        model.break_step = total_timesteps        
+        train_agent(model)
 
     @staticmethod
     def DRL_prediction(model_name, cwd, net_dimension, environment):
         if model_name not in MODELS:
             raise NotImplementedError("NotImplementedError")
-        agent = MODELS[model_name]
+        agent_class = MODELS[model_name]
         environment.env_num = 1
-        args = Arguments(agent_class=agent, env=environment)
-        args.cwd = cwd
-        args.net_dim = net_dimension
-
+        # args = Config(agent_class=agent, env=environment)
+        # args.cwd = cwd
+        # args.net_dim = net_dimension
+        # args.init_before_training()
+        # # load agent
+        # try:
+        #     agent = args.agent_class(args.net_dims,args.state_dim,args.action_dim, gpu_id=args.gpu_id, args=args)
+        #     #agent = init_agent(args, gpu_id=0)
+        #     act = agent.act
+        #     device = agent.device
+        # except BaseException:
+        #     raise ValueError("Fail to load agent!")
+        agent = agent_class(net_dimension, environment.state_dim, environment.action_dim)
+        actor = agent.act
         # load agent
-        try:
-            agent = init_agent(args, gpu_id=0)
-            act = agent.act
+        try:  
+            # cwd = cwd + '/actor.pth'
+            # print(f"| load actor from: {cwd}")
+            # actor.load_state_dict(torch.load(cwd, map_location=lambda storage, loc: storage))
+            act = actor
             device = agent.device
         except BaseException:
             raise ValueError("Fail to load agent!")
-
+        
         # test on the testing env
         _torch = torch
         state = environment.reset()
